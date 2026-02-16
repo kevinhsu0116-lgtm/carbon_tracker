@@ -64,7 +64,7 @@ def _write_cloud_log(date_str, food, clothes, home, transport, total):
     )
 
     try:
-        conn.update(data=new_data, append=True)
+        conn.append(data=new_data, append=True)
         st.success("紀錄已存入雲端後台！")
     except Exception:
         st.error("Google 目前忙碌中，請稍後再試。")
