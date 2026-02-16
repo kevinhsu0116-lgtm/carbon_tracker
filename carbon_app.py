@@ -58,16 +58,22 @@ def _calc(items, inputs, use_power=False, use_gas=False):
 
 # ====== 3. 雲端寫入（🔥 改成 append 版） ======
 def _write_cloud_log(date_str, food, clothes, home, transport, total):
-    new_data = pd.DataFrame(
-        [[date_str, food, clothes, home, transport, total]],
-        columns=["date", "food", "clothes", "home", "transport", "total"]
-    )
+
+    new_row = [[
+        date_str,
+        food,
+        clothes,
+        home,
+        transport,
+        total
+    ]]
 
     try:
-        conn.append(data=new_data, append=True)
+        conn.append(new_row)
         st.success("紀錄已存入雲端後台！")
-    except Exception:
-        st.error("Google 目前忙碌中，請稍後再試。")
+
+    except Exception as e:
+        st.error("Google 目前忙碌或達到配額，請稍後再試。")
 
 
 # ====== 4. 介面 ======
