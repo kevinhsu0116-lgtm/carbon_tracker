@@ -161,4 +161,4 @@ if admin_pw == st.secrets.get("admin", {}).get("password", ""):
         st.dataframe(df, use_container_width=True)
         st.download_button("下載備份 CSV", df.to_csv(index=False), "backup.csv")
     except Exception as e:
-        st.error(f"讀取失敗：{e}")
+        st.error(f"讀取失敗：{e}")pi
