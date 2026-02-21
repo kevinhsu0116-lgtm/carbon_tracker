@@ -34,7 +34,7 @@ EF_CLOTHES: Dict[str, float] = {
 }
 
 # ==========================================
-# 2. 功能函式 (保留原本邏輯)
+# 2. 功能函式 (保留原本邏輯 + 新增衝擊計算)
 # ==========================================
 @st.cache_resource
 def get_supabase() -> Client:
@@ -51,6 +51,18 @@ def _calc(items, inputs, use_power=False, use_gas=False):
         if use_gas: val *= EF_GAS
         subtotal += val
     return round(subtotal, 2)
+
+# 新增：6 大衝擊指標科學邏輯
+def _calc_impact_metrics(total_kg):
+    total_tons = total_kg / 1000
+    return {
+        "glacier": total_tons * 3,                # 冰川: 1噸=3m2
+        "temp": total_kg * 1.5e-12,               # 升溫: 科學換算極微小值
+        "tree_days": (total_kg / 22) * 365,       # 大樹: 換算吸收天數
+        "sea_acid": total_kg * 0.05,              # 海洋: 影響海水體積 (m3)
+        "social_cost": total_tons * 6500,         # 社會成本: 1噸=6500元
+        "ac_hours": total_kg * 1.2                # 資源: 1kg=1.2hr冷氣
+    }
 
 def _write_supabase(date_str, user_name, food, clothes, home, transport, total):
     try:
@@ -87,7 +99,7 @@ with st.sidebar:
     date_str = d.strftime("%Y-%m-%d")
     admin_pw = st.text_input("管理員後台密碼", type="password")
 
-st.write(f"###  您好嗎 {user_name}，請填寫今日數據：")
+st.write(f"### 您好嗎 {user_name}，請填寫今日數據：")
 
 # 食
 st.subheader("食（kg）")
@@ -138,39 +150,63 @@ if st.button("計算並儲存") and not st.session_state.submitted:
     traffic_total = _calc(EF_TRAFFIC, traffic_inputs)
     total         = round(food_total + clothes_total + home_total + traffic_total, 2)
 
-    # 原本的結算顯示
+    # 結算數據顯示
     st.subheader("📊 計算結果 (kgCO2e)")
     st.write(f"食：{food_total:.2f} | 衣：{clothes_total:.2f} | 住：{home_total:.2f} | 行：{traffic_total:.2f}")
-    st.markdown(f"### **合計：{total:.2f}**")
+    st.markdown(f"### **今日總計：{total:.2f}**")
 
-    # --- 新增：環境生態工程報告區 (指標 1: 冰川) ---
+    # --- 核心：6 大環境衝擊報告區 ---
     st.divider()
-    st.header("🧊 環境衝擊報告：冰川消融指標")
+    st.header("🌎 環境生態工程：全方位衝擊報告")
     
-    # 科學計算：1 噸 = 3 平方公尺冰川
-    glacier_area = (total / 1000) * 3
-    # 單位轉換：一張瑜珈墊約 1.08 平方公尺 (1.8m * 0.6m)
-    yoga_mats = glacier_area / 1.08
+    impacts = _calc_impact_metrics(total)
     
-    rep_col1, rep_col2 = st.columns([1, 3])
-    with rep_col1:
-        st.title("❄️")
-    with rep_col2:
-        st.write(f"您的今日碳排將導致 **{glacier_area:.6f}** $m^2$ 的北極冰川消失。")
-        st.info(f"這大約是 **{yoga_mats:.2f}** 張瑜珈墊的面積。保護環境，刻不容緩！")
+    # 第一排指標：全球大氣影響
+    row1_c1, row1_c2 = st.columns(2)
+    with row1_c1:
+        st.write("🧊 **冰川消融面積**")
+        st.code(f"{impacts['glacier']:.6f} m²", language='markdown')
+        st.caption(f"等同約 {impacts['glacier']/1.08:.2f} 張瑜珈墊消失")
+    with row1_c2:
+        st.write("🌡️ **升溫壓力貢獻**")
+        st.code(f"{impacts['temp']:.12f} °C", language='markdown')
+        st.caption("基於全球 1.5°C 碳預算模型之微觀貢獻")
+
+    # 第二排指標：局部生態壓力
+    row2_c1, row2_c2 = st.columns(2)
+    with row2_c1:
+        st.write("🌳 **單棵大樹負荷**")
+        st.code(f"{impacts['tree_days']:.1f} 天", language='markdown')
+        st.caption("需一棵大樹全力吸收這些天數才能中和")
+    with row2_c2:
+        st.write("🌊 **海洋酸化壓力**")
+        st.code(f"{impacts['sea_acid']:.2f} m³", language='markdown')
+        st.caption("等同受排碳影響而酸化風險的海水體積")
+
+    # 第三排指標：社會成本與資源消耗
+    row3_c1, row3_c2 = st.columns(2)
+    with row3_c1:
+        st.write("💰 **未來災害修復成本**")
+        st.code(f"NT$ {impacts['social_cost']:.2f}", language='markdown')
+        st.caption("對應未來極端天氣產生的全球社會負擔")
+    with row3_c2:
+        st.write("⚡ **生活電力耗用當量**")
+        st.code(f"{impacts['ac_hours']:.1f} 小時", language='markdown')
+        st.caption("等同家中冷氣連續運轉的總時數")
     # --------------------------------------------
 
     _write_supabase(date_str, user_name, food_total, clothes_total, home_total, traffic_total, total)
     st.session_state.submitted = False
 
 # ==========================================
-# 5. 歷史紀錄與管理後台 (保留原本邏輯)
+# 5. 歷史紀錄與管理後台
 # ==========================================
 st.divider()
 st.header(f" {user_name} 的歷史紀錄")
 try:
     supabase = get_supabase()
     response = supabase.table("carbon_records").select("*").eq("user_name", user_name).order("date", desc=True).execute()
+    import pandas as pd
     if response.data:
         df = pd.DataFrame(response.data)
         st.dataframe(df, use_container_width=True)
