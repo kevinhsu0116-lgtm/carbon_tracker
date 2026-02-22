@@ -7,7 +7,7 @@ from supabase import create_client, Client
 import pandas as pd
 
 # ==========================================
-# 1. 排放係數設定
+# 1. 排放係數設定 (移除衣，新增一次性用品)
 # ==========================================
 EF_FOOD: Dict[str, float] = {
     "牛肉": 60.0, "羊肉": 24.0, "豬肉": 7.0, "雞肉": 6.0, "魚肉": 6.0,
@@ -33,7 +33,7 @@ EF_LIVE: Dict[str, float] = {
 }
 
 # ==========================================
-# 2. 功能函式
+# 2. 功能函式 (計算、衝擊指標、評分)
 # ==========================================
 @st.cache_resource
 def get_supabase() -> Client:
@@ -58,19 +58,31 @@ def _get_score(total_val):
     elif total_val <= 42: return 2
     else: return 1
 
+def _calc_impact_metrics(total_kg):
+    total_tons = total_kg / 1000
+    # 放大 1000 萬人的倍率
+    scale = 10_000_000
+    total_scale_kg = total_kg * scale
+    total_scale_tons = total_scale_kg / 1000
+
+    return {
+        "glacier": total_scale_tons * 3,                # 冰川消融
+        "temp": total_scale_kg * 1.5e-12,              # 升溫壓力
+        "tree_days": (total_scale_kg / 22),            # 需多少棵樹吸收一年
+        "sea_acid": total_scale_kg * 0.05,             # 海洋酸化體積
+        "social_cost": total_scale_tons * 6500,        # 未來社會成本
+        "ac_hours": total_scale_kg * 1.2               # 生活電力耗用當量
+    }
+
 def _write_supabase(date_str, user_name, food, disposable, home, transport, total):
     try:
         supabase = get_supabase()
         supabase.table("carbon_records").insert({
-            "user_name": user_name, 
-            "date":      date_str,
-            "food":      food,
-            "clothes":   disposable,
-            "home":      home,
-            "transport": transport,
-            "total":     total,
+            "user_name": user_name, "date": date_str,
+            "food": food, "clothes": disposable, 
+            "home": home, "transport": transport, "total": total,
         }).execute()
-        st.success(f"數據已同步")
+        st.success(f"數據已同步至雲端")
     except Exception as e:
         st.error(f"儲存失敗：{e}")
 
@@ -91,16 +103,14 @@ with st.sidebar:
     d = st.date_input("日期", value=date.today())
     date_str = d.strftime("%Y-%m-%d")
 
-st.write(f"### 您好 {user_name}")
-
+# --- 輸入區塊 ---
 c1, c2 = st.columns(2)
 with c1:
     st.subheader("食（kg）")
-    food_inputs = {n: st.number_input(n, min_value=0.0, key=f"f_{n}") for n in EF_FOOD.keys()}
-
+    f_in = {n: st.number_input(n, min_value=0.0, key=f"f_{n}") for n in EF_FOOD.keys()}
 with c2:
     st.subheader("一次性用品（個）")
-    disposable_inputs = {n: st.number_input(n, min_value=0.0, key=f"d_{n}") for n in EF_DISPOSABLE.keys()}
+    d_in = {n: st.number_input(n, min_value=0.0, key=f"d_{n}") for n in EF_DISPOSABLE.keys()}
 
 c3, c4 = st.columns(2)
 with c3:
@@ -109,72 +119,78 @@ with c3:
     gas_list   = {k: v for k, v in EF_LIVE.items() if "瓦斯" in k}
     p_in = {n: st.number_input(n, min_value=0.0, key=f"p_{n}") for n in power_list.keys()}
     g_in = {n: st.number_input(n, min_value=0.0, key=f"g_{n}") for n in gas_list.keys()}
-
 with c4:
     st.subheader("行（公里）")
-    traffic_inputs = {n: st.number_input(n, min_value=0.0, key=f"t_{n}") for n in EF_TRAFFIC.keys()}
+    t_in = {n: st.number_input(n, min_value=0.0, key=f"t_{n}") for n in EF_TRAFFIC.keys()}
 
 # ==========================================
-# 4. 計算與集體衝擊模擬
+# 4. 計算與環境生態工程 (1000萬人模擬版)
 # ==========================================
-if st.button("計算並儲存紀錄"):
-    f_total = _calc(EF_FOOD, food_inputs)
-    d_total = _calc(EF_DISPOSABLE, disposable_inputs)
+if st.button("計算並儲存"):
+    f_total = _calc(EF_FOOD, f_in)
+    d_total = _calc(EF_DISPOSABLE, d_in)
     h_total = round(_calc(power_list, p_in, use_power=True) + _calc(gas_list, g_in, use_gas=True), 2)
-    t_total = _calc(EF_TRAFFIC, traffic_inputs)
+    t_total = _calc(EF_TRAFFIC, t_in)
     total   = round(f_total + d_total + h_total + t_total, 2)
 
     today_score = _get_score(total)
-    
     st.divider()
     st.header(f"今日效率評分：{'⭐' * today_score}")
-    st.markdown(f"### 今日總計：{total:.2f} kgCO2e")
+    st.markdown(f"### 今日個人總計：{total:.2f} kgCO2e")
 
-    # 1000萬人模擬邏輯
-    st.subheader("💡 如果 1000 萬人跟妳做一樣的事...")
+    # --- 核心：6 大環境生態工程報告 (放大 1000 萬倍) ---
+    st.header("🌎 環境生態工程：1000 萬人集體衝擊模擬")
+    st.info("如果全台灣有一千萬人跟妳做一樣的事，一天的影響力將會是：")
     
-    # 換算數據：1kg * 10^7 = 1萬噸
-    m_total_tons = (total * 10000000) / 1000
+    impacts = _calc_impact_metrics(total)
     
-    ic1, ic2 = st.columns(2)
-    with ic1:
-        st.info(f"**單日總排量將達到**")
-        st.title(f"{int(m_total_tons):,} 噸")
-        st.caption("這相當於台灣單日總排放量的巨大佔比")
-    
-    with ic2:
-        st.info(f"**全台生態需承擔**")
-        # 以一棵樹每年吸收22kg計算
-        trees_needed = (total * 10000000) / 22
-        st.title(f"{int(trees_needed):,} 棵大樹")
-        st.caption("需這麼多大樹同時吸收一年才能抵銷這一天的活動")
+    r1_c1, r1_c2 = st.columns(2)
+    with r1_c1:
+        st.write("🧊 **冰川消融面積**")
+        st.code(f"{impacts['glacier']:,.2f} m²", language='markdown')
+    with r1_c2:
+        st.write("🌡️ **升溫壓力貢獻**")
+        st.code(f"{impacts['temp']:.10f} °C", language='markdown')
 
+    r2_c1, r2_c2 = st.columns(2)
+    with r2_c1:
+        st.write("🌳 **全台所需吸收大樹**")
+        st.code(f"{int(impacts['tree_days']):,} 棵", language='markdown')
+        st.caption("需這麼多大樹吸收一年才能中和這一天的集體排碳")
+    with r2_c2:
+        st.write("🌊 **海洋酸化壓力體積**")
+        st.code(f"{impacts['sea_acid']:,.2f} m³", language='markdown')
+
+    r3_c1, r3_c2 = st.columns(2)
+    with r3_c1:
+        st.write("💰 **全球社會修復成本**")
+        st.code(f"NT$ {impacts['social_cost']:,.0f}", language='markdown')
+    with r3_c2:
+        st.write("⚡ **生活電力耗用當量**")
+        st.code(f"{impacts['ac_hours']:,.0f} 小時", language='markdown')
+    
     _write_supabase(date_str, user_name, f_total, d_total, h_total, t_total, total)
 
 # ==========================================
-# 5. 歷史分析
+# 5. 歷史分析與長期評分
 # ==========================================
 st.divider()
 st.header(f"📊 {user_name} 的趨勢分析")
-
 try:
     supabase = get_supabase()
-    response = supabase.table("carbon_records").select("*").eq("user_name", user_name).order("date", desc=False).execute()
-    
-    if response.data:
-        df = pd.DataFrame(response.data)
+    res = supabase.table("carbon_records").select("*").eq("user_name", user_name).order("date", desc=False).execute()
+    if res.data:
+        df = pd.DataFrame(res.data)
         df['date'] = pd.to_datetime(df['date'])
         st.line_chart(df.sort_values('date').set_index('date')[['total']])
 
         avg_val = df['total'].mean()
         long_score = _get_score(avg_val)
-        star_str = "⭐" * long_score + "✨" * (5 - long_score)
-
         c_m1, c_m2, c_m3 = st.columns(3)
         with c_m1: st.metric("歷史最高", f"{df['total'].max()} kg")
         with c_m2: st.metric("平均日排放", f"{round(avg_val, 2)} kg")
-        with c_m3: st.metric("長期效率星級", star_str)
+        with c_m3: st.metric("長期效率星級", "⭐" * long_score)
     else:
         st.info("尚無歷史數據。")
 except Exception as e:
-    st.error(f"讀取失敗")
+    st.error(f"讀取資料庫失敗")
