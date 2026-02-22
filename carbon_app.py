@@ -76,7 +76,7 @@ if not user_name:
     st.stop()
 
 with st.sidebar:
-    d = st.date_input("📅 選擇日期", value=date.today())
+    d = st.date_input(" 選擇日期", value=date.today())
     date_str = d.strftime("%Y-%m-%d")
 
 # 定義分頁標籤
@@ -104,7 +104,7 @@ with tab1:
         st.subheader(" 行（公里）")
         t_in = {n: st.number_input(n, min_value=0.0, key=f"t_{n}") for n in EF_TRAFFIC.keys()}
 
-    if st.button("🚀 計算並儲存今日紀錄"):
+    if st.button(" 計算並儲存今日紀錄"):
         f_total = _calc(EF_FOOD, f_in)
         d_total = _calc(EF_DISPOSABLE, d_in)
         h_total = round(_calc(p_list, p_in, True) + _calc(g_list, g_in, False, True), 2)
@@ -136,7 +136,7 @@ with tab2:
         st.metric("今日個人總碳排", f"{total} kgCO2e")
         
         st.divider()
-        st.subheader("🌎 如果 1000 萬人跟妳做一樣的事...")
+        st.subheader(" 如果 1000 萬人跟妳做一樣的事...")
         scale = 10_000_000
         st.warning(f"集體總排量將達：{int(total * scale / 1000):,} 噸")
         
@@ -175,3 +175,4 @@ with tab3:
             st.info("尚無歷史紀錄。")
     except:
         st.error("讀取失敗")
+
