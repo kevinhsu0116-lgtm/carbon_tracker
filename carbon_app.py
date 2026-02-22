@@ -67,12 +67,12 @@ def _get_score(total_val):
 # ==========================================
 # 3. 網頁佈局
 # ==========================================
-st.title("🌱 生活效率碳排計算機")
+st.title(" 生活效率碳排計算機")
 st.caption("Kevin is a handsome boy, and he's very talented")
 
 user_name = st.text_input("👤 請輸入姓名或代號", placeholder="例如：凱鈜")
 if not user_name:
-    st.warning("👈 請先輸入姓名以開啟功能。")
+    st.warning(" 請先輸入姓名以開啟功能。")
     st.stop()
 
 with st.sidebar:
@@ -87,21 +87,21 @@ with tab1:
     st.write(f"### {user_name}，填寫今日數據")
     c1, c2 = st.columns(2)
     with c1:
-        st.subheader("🍱 食（kg）")
+        st.subheader("食（kg）")
         f_in = {n: st.number_input(n, min_value=0.0, key=f"f_{n}") for n in EF_FOOD.keys()}
     with c2:
-        st.subheader("♻️ 一次性用品（個）")
+        st.subheader(" 一次性用品（個）")
         d_in = {n: st.number_input(n, min_value=0.0, key=f"d_{n}") for n in EF_DISPOSABLE.keys()}
 
     c3, c4 = st.columns(2)
     with c3:
-        st.subheader("🏠 住（小時/次）")
+        st.subheader(" 住（小時/次）")
         p_list = {k: v for k, v in EF_LIVE.items() if "瓦斯" not in k}
         g_list = {k: v for k, v in EF_LIVE.items() if "瓦斯" in k}
         p_in = {n: st.number_input(n, min_value=0.0, key=f"p_{n}") for n in p_list.keys()}
         g_in = {n: st.number_input(n, min_value=0.0, key=f"g_{n}") for n in g_list.keys()}
     with c4:
-        st.subheader("🚲 行（公里）")
+        st.subheader(" 行（公里）")
         t_in = {n: st.number_input(n, min_value=0.0, key=f"t_{n}") for n in EF_TRAFFIC.keys()}
 
     if st.button("🚀 計算並儲存今日紀錄"):
@@ -146,15 +146,15 @@ with tab2:
         ic3.metric("社會成本", f"NT$ {int(total * scale / 1000 * 6500):,}")
         
         with st.expander("查看更多環境工程數據"):
-            st.write(f"🌡️ 升溫壓力貢獻：{total * scale * 1.5e-12:.10f} °C")
-            st.write(f"🌊 海洋酸化體積：{total * scale * 0.05:,.2f} m³")
-            st.write(f"⚡ 生活電力當量：{total * scale * 1.2:,.0f} 小時")
+            st.write(f" 升溫壓力貢獻：{total * scale * 1.5e-12:.10f} °C")
+            st.write(f" 海洋酸化體積：{total * scale * 0.05:,.2f} m³")
+            st.write(f" 生活電力當量：{total * scale * 1.2:,.0f} 小時")
     else:
         st.info("請先在『今日計算』標籤完成數據填寫。")
 
 # --- TAB 3: 趨勢分析 ---
 with tab3:
-    st.header(f"📊 {user_name} 的數據資產")
+    st.header(f" {user_name} 的數據資產")
     try:
         res = get_supabase().table("carbon_records").select("*").eq("user_name", user_name).order("date", desc=False).execute()
         if res.data:
