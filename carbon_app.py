@@ -92,12 +92,12 @@ def _get_score(total_val):
 # ==========================================
 # 4. 網頁架構與分頁
 # ==========================================
-st.title("🌱 生活效率碳排計算機")
+st.title(" 生活效率碳排計算機")
 st.caption("Kevin is a handsome boy, and he's very talented")
 
 user_name = st.text_input("👤 請輸入姓名或代號")
 if not user_name:
-    st.warning("👈 請先輸入姓名以開啟系統。")
+    st.warning(" 請先輸入姓名以開啟系統。")
     st.stop()
 
 with st.sidebar:
@@ -111,21 +111,21 @@ with tab1:
     st.write(f"### {user_name}，填寫今日數據")
     c1, c2 = st.columns(2)
     with c1:
-        st.subheader("🍱 食（kg）")
+        st.subheader(" 食（kg）")
         f_in = {n: st.number_input(n, min_value=0.0, key=f"f_{n}") for n in EF_FOOD.keys()}
     with c2:
-        st.subheader("♻️ 一次性用品（個）")
+        st.subheader(" 一次性用品（個）")
         d_in = {n: st.number_input(n, min_value=0.0, key=f"d_{n}") for n in EF_DISPOSABLE.keys()}
 
     c3, c4 = st.columns(2)
     with c3:
-        st.subheader("🏠 住（小時/次）")
+        st.subheader(" 住（小時/次）")
         p_list = {k: v for k, v in EF_LIVE.items() if "瓦斯" not in k}
         g_list = {k: v for k, v in EF_LIVE.items() if "瓦斯" in k}
         p_in = {n: st.number_input(n, min_value=0.0, key=f"p_{n}") for n in p_list.keys()}
         g_in = {n: st.number_input(n, min_value=0.0, key=f"g_{n}") for n in g_list.keys()}
     with c4:
-        st.subheader("🚲 行（公里）")
+        st.subheader("行（公里）")
         t_in = {n: st.number_input(n, min_value=0.0, key=f"t_{n}") for n in EF_TRAFFIC.keys()}
 
     if st.button("🚀 計算並儲存數據"):
@@ -155,18 +155,18 @@ with tab2:
         
         col1, col2 = st.columns(2)
         with col1:
-            st.write("🧊 冰川消融面積")
+            st.write(" 冰川消融面積")
             st.code(f"{(total * scale / 1000 * 3):,.2f} m²")
-            st.write("🌡️ 升溫壓力貢獻")
+            st.write(" 升溫壓力貢獻")
             st.code(f"{total * scale * 1.5e-12:.10f} °C")
-            st.write("🌳 全台所需吸收大樹")
+            st.write(" 全台所需吸收大樹")
             st.code(f"{int(total * scale / 22):,} 棵")
         with col2:
-            st.write("🌊 海洋酸化壓力體積")
+            st.write(" 海洋酸化壓力體積")
             st.code(f"{total * scale * 0.05:,.2f} m³")
-            st.write("💰 全球社會修復成本")
+            st.write(" 全球社會修復成本")
             st.code(f"NT$ {int(total * scale / 1000 * 6500):,}")
-            st.write("⚡ 生活電力耗用當量")
+            st.write(" 生活電力耗用當量")
             st.code(f"{total * scale * 1.2:,.0f} 小時")
     else:
         st.info("請先完成今日計算。")
