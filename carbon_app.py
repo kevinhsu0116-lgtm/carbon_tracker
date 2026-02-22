@@ -201,26 +201,45 @@ if st.button("計算並儲存") and not st.session_state.submitted:
 # ==========================================
 # 5. 歷史紀錄與管理後台
 # ==========================================
+# ==========================================
+# 5. 歷史紀錄與趨勢圖表
+# ==========================================
 st.divider()
-st.header(f" {user_name} 的歷史紀錄")
+st.header(f"📊 {user_name} 的碳排趨勢分析")
+
 try:
     supabase = get_supabase()
-    response = supabase.table("carbon_records").select("*").eq("user_name", user_name).order("date", desc=True).execute()
-    import pandas as pd
+    # 抓取該使用者的所有紀錄，並按日期排序
+    response = supabase.table("carbon_records").select("*").eq("user_name", user_name).order("date", desc=False).execute()
+    
     if response.data:
         df = pd.DataFrame(response.data)
-        st.dataframe(df, use_container_width=True)
-    else:
-        st.write("還沒有您的紀錄，快點開始！")
-except Exception as e:
-    st.error(f"讀取失敗哈：{e}")
+        # 確保日期格式正確並設定為索引
+        df['date'] = pd.to_datetime(df['date'])
+        df_sorted = df.sort_values('date')
 
-if admin_pw and admin_pw == st.secrets.get("admin", {}).get("password", ""):
-    st.divider()
-    st.header("🛡️ 管理員總後台 (顯示所有人)")
-    try:
-        all_res = supabase.table("carbon_records").select("*").order("date", desc=True).execute()
-        df_all = pd.DataFrame(all_res.data)
-        st.dataframe(df_all, use_container_width=True)
-    except Exception as e:
-        st.error(f"後台讀取失敗：{e}")
+        # --- 繪製折線圖 ---
+        # 準備圖表數據：我們只看總計 (total)
+        chart_df = df_sorted.set_index('date')[['total']]
+        
+        # 使用 Streamlit 內建的高質感折線圖
+        st.line_chart(chart_df, use_container_width=True)
+
+        # --- 數據統計小卡 ---
+        c1, c2, c3 = st.columns(3)
+        with c1:
+            st.metric("歷史最高", f"{df['total'].max()} kg")
+        with c2:
+            st.metric("平均碳排", f"{round(df['total'].mean(), 2)} kg")
+        with c3:
+            st.metric("記錄筆數", f"{len(df)} 筆")
+
+        # 原始表格放在收納摺疊區，不佔空間
+        with st.expander("查看詳細紀錄表格"):
+            st.dataframe(df.sort_values('date', ascending=False), use_container_width=True)
+            
+    else:
+        st.info("💡 目前還沒有您的歷史紀錄，請在上方輸入數據並點擊『計算並儲存』！")
+
+except Exception as e:
+    st.error(f"讀取圖表失敗：{e}")
