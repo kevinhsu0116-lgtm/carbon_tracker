@@ -7,7 +7,7 @@ from supabase import create_client, Client
 import pandas as pd
 
 # ==========================================
-# 1. 排放係數設定 (移除衣，新增一次性用品)
+# 1. 排放係數與 CSS 美化
 # ==========================================
 EF_FOOD: Dict[str, float] = {
     "牛肉": 60.0, "羊肉": 24.0, "豬肉": 7.0, "雞肉": 6.0, "魚肉": 6.0,
@@ -23,8 +23,7 @@ EF_DISPOSABLE: Dict[str, float] = {
     "塑膠袋": 0.05, "紙杯": 0.04, "塑膠吸管": 0.01,
     "免洗餐具": 0.03, "餐盒": 0.15, "寶特瓶": 0.08,
 }
-EF_GRID = 0.52
-EF_GAS = 2.0
+EF_GRID, EF_GAS = 0.52, 2.0
 EF_LIVE: Dict[str, float] = {
     "冷氣": 1.2, "電風扇": 0.05, "電燈": 0.01, "電視": 0.10,
     "電腦": 0.15, "手機充電": 0.015, "洗衣": 0.5,
@@ -32,23 +31,30 @@ EF_LIVE: Dict[str, float] = {
     "洗澡_瓦斯": 0.2, "煮飯_瓦斯": 0.2,
 }
 
+# 注入 CSS 提升視覺質感
+st.markdown("""
+    <style>
+    .stTabs [data-baseweb="tab-list"] { gap: 20px; }
+    .stTabs [data-baseweb="tab"] {
+        height: 50px;
+        white-space: pre-wrap;
+        background-color: #f0f2f6;
+        border-radius: 10px 10px 0px 0px;
+        gap: 1px;
+    }
+    .stTabs [aria-selected="true"] { background-color: #2E7D32 !important; color: white !important; }
+    </style>
+    """, unsafe_allow_html=True)
+
 # ==========================================
-# 2. 功能函式 (計算、衝擊指標、評分)
+# 2. 功能函式
 # ==========================================
 @st.cache_resource
 def get_supabase() -> Client:
-    url = st.secrets["supabase"]["url"]
-    key = st.secrets["supabase"]["key"]
-    return create_client(url, key)
+    return create_client(st.secrets["supabase"]["url"], st.secrets["supabase"]["key"])
 
 def _calc(items, inputs, use_power=False, use_gas=False):
-    subtotal = 0.0
-    for name, factor in items.items():
-        qty = float(inputs.get(name, 0.0) or 0.0)
-        val = qty * factor
-        if use_power: val *= EF_GRID
-        if use_gas: val *= EF_GAS
-        subtotal += val
+    subtotal = sum(float(inputs.get(n, 0) or 0) * f * (EF_GRID if use_power else 1) * (EF_GAS if use_gas else 1) for n, f in items.items())
     return round(subtotal, 2)
 
 def _get_score(total_val):
@@ -58,139 +64,114 @@ def _get_score(total_val):
     elif total_val <= 42: return 2
     else: return 1
 
-def _calc_impact_metrics(total_kg):
-    total_tons = total_kg / 1000
-    # 放大 1000 萬人的倍率
-    scale = 10_000_000
-    total_scale_kg = total_kg * scale
-    total_scale_tons = total_scale_kg / 1000
-
-    return {
-        "glacier": total_scale_tons * 3,                # 冰川消融
-        "temp": total_scale_kg * 1.5e-12,              # 升溫壓力
-        "tree_days": (total_scale_kg / 22),            # 需多少棵樹吸收一年
-        "sea_acid": total_scale_kg * 0.05,             # 海洋酸化體積
-        "social_cost": total_scale_tons * 6500,        # 未來社會成本
-        "ac_hours": total_scale_kg * 1.2               # 生活電力耗用當量
-    }
-
-def _write_supabase(date_str, user_name, food, disposable, home, transport, total):
-    try:
-        supabase = get_supabase()
-        supabase.table("carbon_records").insert({
-            "user_name": user_name, "date": date_str,
-            "food": food, "clothes": disposable, 
-            "home": home, "transport": transport, "total": total,
-        }).execute()
-        st.success(f"數據已同步至雲端")
-    except Exception as e:
-        st.error(f"儲存失敗：{e}")
-
 # ==========================================
-# 3. 介面呈現
+# 3. 網頁佈局
 # ==========================================
-st.set_page_config(page_title="生活效率計算", layout="wide")
-st.title("個人生活效率碳排計算機")
-st.subheader("Kevin is a handsome boy, and he's very talented")
+st.title("🌱 生活效率碳排計算機")
+st.caption("Kevin is a handsome boy, and he's very talented")
 
-user_name = st.text_input("請輸入您的姓名或代號", placeholder="例如：凱鈜")
-
+user_name = st.text_input("👤 請輸入姓名或代號", placeholder="例如：凱鈜")
 if not user_name:
-    st.warning("請先輸入姓名以開啟空間。")
+    st.warning("👈 請先輸入姓名以開啟功能。")
     st.stop()
 
 with st.sidebar:
-    d = st.date_input("日期", value=date.today())
+    d = st.date_input("📅 選擇日期", value=date.today())
     date_str = d.strftime("%Y-%m-%d")
 
-# --- 輸入區塊 ---
-c1, c2 = st.columns(2)
-with c1:
-    st.subheader("食（kg）")
-    f_in = {n: st.number_input(n, min_value=0.0, key=f"f_{n}") for n in EF_FOOD.keys()}
-with c2:
-    st.subheader("一次性用品（個）")
-    d_in = {n: st.number_input(n, min_value=0.0, key=f"d_{n}") for n in EF_DISPOSABLE.keys()}
+# 定義分頁標籤
+tab1, tab2, tab3 = st.tabs(["🚀 今日計算", "🌎 影響力模擬", "📈 趨勢分析"])
 
-c3, c4 = st.columns(2)
-with c3:
-    st.subheader("住（小時/次）")
-    power_list = {k: v for k, v in EF_LIVE.items() if "瓦斯" not in k}
-    gas_list   = {k: v for k, v in EF_LIVE.items() if "瓦斯" in k}
-    p_in = {n: st.number_input(n, min_value=0.0, key=f"p_{n}") for n in power_list.keys()}
-    g_in = {n: st.number_input(n, min_value=0.0, key=f"g_{n}") for n in gas_list.keys()}
-with c4:
-    st.subheader("行（公里）")
-    t_in = {n: st.number_input(n, min_value=0.0, key=f"t_{n}") for n in EF_TRAFFIC.keys()}
+# --- TAB 1: 今日計算 ---
+with tab1:
+    st.write(f"### {user_name}，填寫今日數據")
+    c1, c2 = st.columns(2)
+    with c1:
+        st.subheader("🍱 食（kg）")
+        f_in = {n: st.number_input(n, min_value=0.0, key=f"f_{n}") for n in EF_FOOD.keys()}
+    with c2:
+        st.subheader("♻️ 一次性用品（個）")
+        d_in = {n: st.number_input(n, min_value=0.0, key=f"d_{n}") for n in EF_DISPOSABLE.keys()}
 
-# ==========================================
-# 4. 計算與環境生態工程 (1000萬人模擬版)
-# ==========================================
-if st.button("計算並儲存"):
-    f_total = _calc(EF_FOOD, f_in)
-    d_total = _calc(EF_DISPOSABLE, d_in)
-    h_total = round(_calc(power_list, p_in, use_power=True) + _calc(gas_list, g_in, use_gas=True), 2)
-    t_total = _calc(EF_TRAFFIC, t_in)
-    total   = round(f_total + d_total + h_total + t_total, 2)
+    c3, c4 = st.columns(2)
+    with c3:
+        st.subheader("🏠 住（小時/次）")
+        p_list = {k: v for k, v in EF_LIVE.items() if "瓦斯" not in k}
+        g_list = {k: v for k, v in EF_LIVE.items() if "瓦斯" in k}
+        p_in = {n: st.number_input(n, min_value=0.0, key=f"p_{n}") for n in p_list.keys()}
+        g_in = {n: st.number_input(n, min_value=0.0, key=f"g_{n}") for n in g_list.keys()}
+    with c4:
+        st.subheader("🚲 行（公里）")
+        t_in = {n: st.number_input(n, min_value=0.0, key=f"t_{n}") for n in EF_TRAFFIC.keys()}
 
-    today_score = _get_score(total)
-    st.divider()
-    st.header(f"今日效率評分：{'⭐' * today_score}")
-    st.markdown(f"### 今日個人總計：{total:.2f} kgCO2e")
+    if st.button("🚀 計算並儲存今日紀錄"):
+        f_total = _calc(EF_FOOD, f_in)
+        d_total = _calc(EF_DISPOSABLE, d_in)
+        h_total = round(_calc(p_list, p_in, True) + _calc(g_list, g_in, False, True), 2)
+        t_total = _calc(EF_TRAFFIC, t_in)
+        total   = round(f_total + d_total + h_total + t_total, 2)
+        
+        # 暫存計算結果到 Session State 供 Tab 2 使用
+        st.session_state['last_total'] = total
+        st.session_state['details'] = (f_total, d_total, h_total, t_total)
+        
+        # 寫入資料庫
+        try:
+            get_supabase().table("carbon_records").insert({
+                "user_name": user_name, "date": date_str, "food": f_total, 
+                "clothes": d_total, "home": h_total, "transport": t_total, "total": total,
+            }).execute()
+            st.balloons()
+            st.success("數據儲存成功！請切換至『影響力模擬』標籤查看報告。")
+        except Exception as e:
+            st.error(f"儲存失敗：{e}")
 
-    # --- 核心：6 大環境生態工程報告 (放大 1000 萬倍) ---
-    st.header("🌎 環境生態工程：1000 萬人集體衝擊模擬")
-    st.info("如果全台灣有一千萬人跟妳做一樣的事，一天的影響力將會是：")
-    
-    impacts = _calc_impact_metrics(total)
-    
-    r1_c1, r1_c2 = st.columns(2)
-    with r1_c1:
-        st.write("🧊 **冰川消融面積**")
-        st.code(f"{impacts['glacier']:,.2f} m²", language='markdown')
-    with r1_c2:
-        st.write("🌡️ **升溫壓力貢獻**")
-        st.code(f"{impacts['temp']:.10f} °C", language='markdown')
-
-    r2_c1, r2_c2 = st.columns(2)
-    with r2_c1:
-        st.write("🌳 **全台所需吸收大樹**")
-        st.code(f"{int(impacts['tree_days']):,} 棵", language='markdown')
-        st.caption("需這麼多大樹吸收一年才能中和這一天的集體排碳")
-    with r2_c2:
-        st.write("🌊 **海洋酸化壓力體積**")
-        st.code(f"{impacts['sea_acid']:,.2f} m³", language='markdown')
-
-    r3_c1, r3_c2 = st.columns(2)
-    with r3_c1:
-        st.write("💰 **全球社會修復成本**")
-        st.code(f"NT$ {impacts['social_cost']:,.0f}", language='markdown')
-    with r3_c2:
-        st.write("⚡ **生活電力耗用當量**")
-        st.code(f"{impacts['ac_hours']:,.0f} 小時", language='markdown')
-    
-    _write_supabase(date_str, user_name, f_total, d_total, h_total, t_total, total)
-
-# ==========================================
-# 5. 歷史分析與長期評分
-# ==========================================
-st.divider()
-st.header(f"📊 {user_name} 的趨勢分析")
-try:
-    supabase = get_supabase()
-    res = supabase.table("carbon_records").select("*").eq("user_name", user_name).order("date", desc=False).execute()
-    if res.data:
-        df = pd.DataFrame(res.data)
-        df['date'] = pd.to_datetime(df['date'])
-        st.line_chart(df.sort_values('date').set_index('date')[['total']])
-
-        avg_val = df['total'].mean()
-        long_score = _get_score(avg_val)
-        c_m1, c_m2, c_m3 = st.columns(3)
-        with c_m1: st.metric("歷史最高", f"{df['total'].max()} kg")
-        with c_m2: st.metric("平均日排放", f"{round(avg_val, 2)} kg")
-        with c_m3: st.metric("長期效率星級", "⭐" * long_score)
+# --- TAB 2: 影響力模擬 ---
+with tab2:
+    if 'last_total' in st.session_state:
+        total = st.session_state['last_total']
+        f, d, h, t = st.session_state['details']
+        
+        st.header(f"今日評分：{'⭐' * _get_score(total)}")
+        st.metric("今日個人總碳排", f"{total} kgCO2e")
+        
+        st.divider()
+        st.subheader("🌎 如果 1000 萬人跟妳做一樣的事...")
+        scale = 10_000_000
+        st.warning(f"集體總排量將達：{int(total * scale / 1000):,} 噸")
+        
+        ic1, ic2, ic3 = st.columns(3)
+        ic1.metric("冰川消融", f"{(total * scale / 1000 * 3):,.0f} m²")
+        ic2.metric("所需大樹", f"{int(total * scale / 22):,} 棵", "吸收一年")
+        ic3.metric("社會成本", f"NT$ {int(total * scale / 1000 * 6500):,}")
+        
+        with st.expander("查看更多環境工程數據"):
+            st.write(f"🌡️ 升溫壓力貢獻：{total * scale * 1.5e-12:.10f} °C")
+            st.write(f"🌊 海洋酸化體積：{total * scale * 0.05:,.2f} m³")
+            st.write(f"⚡ 生活電力當量：{total * scale * 1.2:,.0f} 小時")
     else:
-        st.info("尚無歷史數據。")
-except Exception as e:
-    st.error(f"讀取資料庫失敗")
+        st.info("請先在『今日計算』標籤完成數據填寫。")
+
+# --- TAB 3: 趨勢分析 ---
+with tab3:
+    st.header(f"📊 {user_name} 的數據資產")
+    try:
+        res = get_supabase().table("carbon_records").select("*").eq("user_name", user_name).order("date", desc=False).execute()
+        if res.data:
+            df = pd.DataFrame(res.data)
+            df['date'] = pd.to_datetime(df['date'])
+            
+            st.line_chart(df.sort_values('date').set_index('date')[['total']])
+            
+            avg_v = df['total'].mean()
+            c_m1, c_m2, c_m3 = st.columns(3)
+            c_m1.metric("歷史最高", f"{df['total'].max()} kg")
+            c_m2.metric("平均排放", f"{round(avg_v, 2)} kg")
+            c_m3.metric("長期星級", "⭐" * _get_score(avg_v))
+            
+            with st.expander("查看原始數據表格"):
+                st.dataframe(df.sort_values('date', ascending=False), use_container_width=True)
+        else:
+            st.info("尚無歷史紀錄。")
+    except:
+        st.error("讀取失敗")
