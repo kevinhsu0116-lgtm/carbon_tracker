@@ -67,10 +67,10 @@ def _get_score(total_val):
 # ==========================================
 # 3. 網頁佈局
 # ==========================================
-st.title(" 生活效率碳排計算機")
+st.title(" 生活碳排計算機")
 st.caption("Kevin is a handsome boy, and he's very talented")
 
-user_name = st.text_input("👤 請輸入姓名或代號", placeholder="例如：凱鈜")
+user_name = st.text_input(" 請輸入姓名或代號", placeholder="例如：凱鈜")
 if not user_name:
     st.warning(" 請先輸入姓名以開啟功能。")
     st.stop()
@@ -80,7 +80,7 @@ with st.sidebar:
     date_str = d.strftime("%Y-%m-%d")
 
 # 定義分頁標籤
-tab1, tab2, tab3 = st.tabs(["🚀 今日計算", "🌎 影響力模擬", "📈 趨勢分析"])
+tab1, tab2, tab3 = st.tabs(["今日計算", "影響力模擬", "趨勢分析"])
 
 # --- TAB 1: 今日計算 ---
 with tab1:
@@ -175,4 +175,5 @@ with tab3:
             st.info("尚無歷史紀錄。")
     except:
         st.error("讀取失敗")
+
 
