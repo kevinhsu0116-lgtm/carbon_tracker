@@ -41,7 +41,7 @@ STRATEGY_DATA = {
         "points": [
             "1. 低碳里程: 優先挑選在地食材，或是有碳足跡標籤的商品。減少長途物流產生的直接排放。更重要減少冷鏈倉儲的電力消耗。",
             "2. 低碳加工技術替代：選擇加工層次較低的產品。舉個例子，冷凍蔬菜的冷鏈能耗極高，若改採當季常溫在地蔬菜，就能省下背後巨大的電力間接排放。",
-            "3. 物流整合與去節點化：減少分裝與轉運次數。要求供應商採用大包裝進場、或原箱配送，這可以減少在物流中心停留與二次包裝產生的碳足跡。",
+            "3. 物流整合與去節點化：減少分裝與轉運次數。要求供應商採用大包裝進場、或原箱配送，這可以減少在物流中心停留與跟二次包裝產生的碳足跡。",
             "4. 高生產效率選擇: 挑選採用智慧農場、再生水灌的供應商。這些商品在原料取得階段的碳強度，會比一般農場低。"
         ],
         "perfect": "5. 100分"
@@ -92,7 +92,14 @@ def _calc(items, inputs, use_power=False, use_gas=False):
     subtotal = sum(float(inputs.get(n, 0) or 0) * f * (EF_GRID if use_power else 1) * (EF_GAS if use_gas else 1) for n, f in items.items())
     return round(subtotal, 2)
 
-def _get_item_score(val, low, mid):
+def _get_total_stars(total_val):
+    if total_val <= 5: return 5
+    elif total_val <= 13: return 4
+    elif total_val <= 24: return 3
+    elif total_val <= 42: return 2
+    else: return 1
+
+def _get_item_stars(val, low, mid):
     if val <= low: return 5
     elif val <= mid: return 3
     else: return 1
@@ -147,10 +154,12 @@ with tab1:
 with tab2:
     if 'res' in st.session_state:
         r = st.session_state['res']
-        st.header(f"今日總計：{r['total']} kgCO2e")
-        st.info("減碳不代表要過苦日子，而是用更聰明、高效的方式過日子。")
+        total_stars = _get_total_stars(r['total'])
+        st.header(f"今日效率總評：{'⭐' * total_stars}")
+        st.metric("今日排放總計", f"{r['total']} kgCO2e")
+        st.info("💡 減碳不代表要過苦日子，而是用更聰明、高效的方式過日子。")
         
-        # 1000萬人模擬 (保留你的環保工程內容)
+        # 1000萬人模擬 (保留環境工程內容)
         scale = 10_000_000
         st.subheader("🌎 如果 1000 萬人跟妳做一樣的事...")
         ic1, ic2, ic3 = st.columns(3)
@@ -159,22 +168,22 @@ with tab2:
         ic3.metric("社會成本", f"NT$ {int(r['total'] * scale / 1000 * 6500):,}")
         st.divider()
 
-        # 分項策略 (階梯顯示)
-        scores = {
-            "food": _get_item_score(r['food'], 5, 15),
-            "disposable": _get_item_score(r['disp'], 0.5, 2),
-            "energy": _get_item_score(r['home'], 3, 10),
-            "transport": _get_item_score(r['move'], 1, 5)
+        # 分項策略 (星星制與階梯顯示)
+        item_scores = {
+            "food": _get_item_stars(r['food'], 5, 15),
+            "disposable": _get_item_stars(r['disp'], 0.5, 2),
+            "energy": _get_item_stars(r['home'], 3, 10),
+            "transport": _get_item_stars(r['move'], 1, 5)
         }
 
-        for key, score in scores.items():
+        for key, stars in item_scores.items():
             data = STRATEGY_DATA[key]
-            st.subheader(data['title'])
+            st.subheader(f"{data['title']} ({'⭐' * stars})")
             st.write(f"*{data['desc']}*")
-            if score == 5:
+            if stars == 5:
                 st.success(data['perfect'])
             else:
-                show_count = 5 - score
+                show_count = 5 - stars # 4星顯1點, 3星顯2點...
                 for i in range(min(show_count, 4)):
                     st.write(data['points'][i])
             st.divider()
@@ -188,5 +197,6 @@ with tab3:
         if res.data:
             df = pd.DataFrame(res.data)
             st.line_chart(df.set_index('date')[['total']])
-            st.metric("平均日排放", f"{round(df['total'].mean(), 2)} kg")
+            avg_v = df['total'].mean()
+            st.metric("平均日排放", f"{round(avg_v, 2)} kg", delta=f"{'⭐' * _get_total_stars(avg_v)}")
     except: st.error("讀取失敗")
