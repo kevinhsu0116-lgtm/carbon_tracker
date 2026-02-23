@@ -7,7 +7,7 @@ from supabase import create_client, Client
 import pandas as pd
 
 # ==========================================
-# 1. 排放係數
+# 1. 排放係數 (已換算為 kgCO2e)
 # ==========================================
 EF_FOOD: Dict[str, float] = {
     "牛肉": 60.0, "羊肉": 24.0, "豬肉": 7.0, "雞肉": 6.0, "魚肉": 6.0,
@@ -37,12 +37,12 @@ EF_LIVE: Dict[str, float] = {
 STRATEGY_DATA = {
     "food": {
         "title": "一. 針對間接排放:",
-        "desc": "間接排放之所以高，往往是因為產品在到達你手中前，經歷了過多的搬運。作法: 改變食物來源，降低食物背後的隱形排碳",
+        "desc": "作法: 改變食物來源，降低食物背後的隱形排碳",
         "points": [
-            "1. 低碳里程: 優先挑選在地食材，減少長途物流產生的直接排放與冷鏈電力消耗。",
-            "2. 低碳加工技術替代：選擇加工層次較低的產品。常溫在地蔬菜比冷凍蔬菜更能省下巨大電力間接排放。",
-            "3. 物流整合與去節點化：要求供應商採用大包裝或原箱配送，減少物流中心停留與二次包裝產生的碳足跡。",
-            "4. 高生產效率選擇: 挑選採用智慧農場、再生水灌的供應商，降低原料取得階段的碳強度。"
+            "1. 低碳里程: 優先挑選在地食材，減少長途物流與冷鏈電力消耗。",
+            "2. 低碳加工技術替代：常溫在地蔬菜比冷凍蔬菜更能省下巨大電力間接排放。",
+            "3. 物流整合與去節點化：要求供應商採用大包裝，減少物流中心停留與二次包裝。",
+            "4. 高生產效率選擇: 挑選採用智慧農場、再生水灌的供應商。"
         ],
         "perfect": "5. 100分"
     },
@@ -50,20 +50,20 @@ STRATEGY_DATA = {
         "title": "二. 一次性用品(間接排放):",
         "desc": "作法: 減少物料消耗與優化廢棄物路徑",
         "points": [
-            "1. 環保餐具: 隨身攜帶環保餐具與杯子，從源頭減少一次性用品產生。",
+            "1. 環保餐具: 隨身攜帶環保餐具與杯子，從源頭減少一次性用品。",
             "2. 丟對垃圾桶：確保可回收物進入循環路徑，將廢棄物轉化為再生資源。",
-            "3. 可堆肥材質：針對無法回收的耗材，轉向「工業可堆肥」材質，讓垃圾再利用。",
-            "4. 減少包裝: 選擇裸裝或簡約包裝商品，降低材料生產與後續處理帶來的聯動排放。"
+            "3. 可堆肥材質：針對無法回收的耗材，轉向「工業可堆肥」材質。",
+            "4. 減少包裝: 選擇裸裝或簡約包裝商品，降低材料生產與處理排放。"
         ],
         "perfect": "5. 不錯嘛"
     },
     "energy": {
         "title": "三. 針對能源使用:",
-        "desc": "台灣電力排碳係數高。作法: 轉向高能效設備與行為，提高每度電的效率。",
+        "desc": "作法: 轉向高能效設備與行為，提高每度電的效率。",
         "points": [
-            "1. 高能效比：將老舊或24小時運作設備升級為一級能效，可減少 30%-50% 的電力間接排放。",
-            "2. 能源轉型: 支持政府加速低碳能源配比。當國家電網電力係數下降，你的排碳也會降低。",
-            "3. 行為優化：透過自動排程切斷電源，消除 5%-10% 的電器待機功耗。",
+            "1. 高能效比：升級為一級能效設備，可減少 30%-50% 的電力間接排放。",
+            "2. 能源轉型: 支持政府加速低碳能源配比。當國家電網係數下降，你的排碳也會降低。",
+            "3. 行為優化：消除電器待機功耗，透過自動排程在非使用時段切斷電源。",
             "4. 支持環保: 優先選擇綠電店家，將消費轉向綠電與環保投資。"
         ],
         "perfect": "5. 讚"
@@ -72,10 +72,10 @@ STRATEGY_DATA = {
         "title": "四. 針對直接排放運輸:",
         "desc": "作法: 優化移動效率，減油又減碳",
         "points": [
-            "1. 搭大眾運輸: 透過多人載運平分碳排，減少個人移動帶來的排放量。",
+            "1. 搭大眾運輸: 透過多人載運平分碳排，減少個人移動排放量。",
             "2. 輕量化：移除車上長期堆積物品。每減少45公斤負載，油耗約可降低 1%-2%。",
-            "3. 定期保養載具: 確保載具處於低阻力、高燃燒狀態，維持引擎最高效率。",
-            "4. 智慧路徑規劃: 避開塞車。車輛在走走停停時碳強度最高，穩定時速才是最高效移動。"
+            "3. 定期保養載具: 確保載具處於低阻力狀態，維持引擎最高效率。",
+            "4. 智慧路徑規劃: 避開塞車。穩定時速就是能量轉換率最高的移動方式。"
         ],
         "perfect": "5. 好棒"
     }
@@ -153,22 +153,17 @@ with tab1:
 with tab2:
     if 'res' in st.session_state:
         r = st.session_state['res']
-        
-        # A. 數據概覽區 (新增各項排放量與總和)
-        st.header("📊 今日碳盤查數據摘要")
+        st.header("📊 今日碳盤查數據摘要 (單位: kgCO2e)")
         m1, m2, m3, m4, m5 = st.columns(5)
         m1.metric("🍱 食", f"{r['food']} kg")
         m2.metric("♻️ 用品", f"{r['disp']} kg")
         m3.metric("🏠 住", f"{r['home']} kg")
         m4.metric("🚲 行", f"{r['move']} kg")
-        m5.metric("🌟 總計", f"{r['total']} kg", delta_color="inverse")
+        m5.metric("🌟 總計", f"{r['total']} kg")
         
-        # B. 總體評價
         total_stars = _get_total_stars(r['total'])
         st.subheader(f"今日效率總評：{'⭐' * total_stars}")
-        st.info("💡 減碳不代表要過苦日子，而是用更聰明、高效的方式過日子。")
 
-        # C. 1000萬人模擬
         scale = 10_000_000
         st.subheader("🌎 如果 1000 萬人跟妳做一樣的事...")
         ic1, ic2, ic3 = st.columns(3)
@@ -177,7 +172,6 @@ with tab2:
         ic3.metric("社會成本", f"NT$ {int(r['total'] * scale / 1000 * 6500):,}")
         st.divider()
 
-        # D. 分項策略建議 (連動星星)
         item_scores = {
             "food": _get_item_stars(r['food'], 5, 15),
             "disposable": _get_item_stars(r['disp'], 0.5, 2),
@@ -188,24 +182,34 @@ with tab2:
         for key, stars in item_scores.items():
             data = STRATEGY_DATA[key]
             st.subheader(f"{data['title']} ({'⭐' * stars})")
-            st.write(f"*{data['desc']}*")
-            if stars == 5:
-                st.success(data['perfect'])
+            if stars == 5: st.success(data['perfect'])
             else:
                 show_count = 5 - stars
-                for i in range(min(show_count, 4)):
-                    st.write(data['points'][i])
+                for i in range(min(show_count, 4)): st.write(data['points'][i])
             st.divider()
-    else:
-        st.info("請先在『今日計算』標籤完成填寫。")
+    else: st.info("請先完成計算。")
 
-# --- TAB 3: 趨勢分析 ---
+# --- TAB 3: 趨勢分析 (已整合每日明細表格與各項佔比圖) ---
 with tab3:
     try:
         res = get_supabase().table("carbon_records").select("*").eq("user_name", user_name).order("date", desc=False).execute()
         if res.data:
             df = pd.DataFrame(res.data)
-            st.line_chart(df.set_index('date')[['total']])
+            df_renamed = df.rename(columns={
+                "date": "日期", "food": "飲食 (kgCO2e)", "clothes": "用品 (kgCO2e)", 
+                "home": "能源 (kgCO2e)", "transport": "交通 (kgCO2e)", "total": "今日總排放 (kgCO2e)"
+            })
+            
+            st.subheader("📅 碳排放趨勢分析")
+            st.line_chart(df_renamed.set_index('日期')[['今日總排放 (kgCO2e)']])
+            
+            st.subheader("📊 排放熱點組成分析")
+            st.area_chart(df_renamed.set_index('日期')[["飲食 (kgCO2e)", "用品 (kgCO2e)", "能源 (kgCO2e)", "交通 (kgCO2e)"]])
+            
+            st.divider()
+            st.subheader("📋 每日盤查紀錄明細表")
+            st.dataframe(df_renamed.set_index("日期"), use_container_width=True)
+            
             avg_v = df['total'].mean()
-            st.metric("平均日排放", f"{round(avg_v, 2)} kg")
-    except: st.error("讀取失敗")
+            st.metric("平均日排放", f"{round(avg_v, 2)} kgCO2e", delta=f"{round(avg_v - 19.6, 2)} vs 台灣平均", delta_color="inverse")
+    except Exception as e: st.error(f"讀取失敗: {e}")
