@@ -108,7 +108,7 @@ def _get_item_stars(val, low, mid):
 # 4. 網頁佈局
 # ==========================================
 st.set_page_config(page_title="生活碳排計算機", layout="wide")
-st.title("🌱 生活碳排計算機")
+st.title("生活碳排計算機")
 
 user_name = st.text_input("請輸入代號")
 if not user_name:
@@ -125,15 +125,15 @@ tab1, tab2, tab3 = st.tabs(["今日計算", "策略報告", "趨勢分析"])
 with tab1:
     c1, c2 = st.columns(2)
     with c1:
-        st.subheader("🍱 食（kg）")
+        st.subheader("食（kg）")
         f_in = {n: st.number_input(n, min_value=0.0, key=f"f_{n}") for n in EF_FOOD.keys()}
-        st.subheader("♻️ 一次性用品（個）")
+        st.subheader(" 一次性用品（個）")
         d_in = {n: st.number_input(n, min_value=0.0, key=f"d_{n}") for n in EF_DISPOSABLE.keys()}
     with c2:
-        st.subheader("🏠 住（小時）")
+        st.subheader("住（小時）")
         p_list = {k: v for k, v in EF_LIVE.items() if "瓦斯" not in k}
         p_in = {n: st.number_input(n, min_value=0.0, key=f"p_{n}") for n in p_list.keys()}
-        st.subheader("🚲 行（公里）")
+        st.subheader(" 行（公里）")
         t_in = {n: st.number_input(n, min_value=0.0, key=f"t_{n}") for n in EF_TRAFFIC.keys()}
 
     if st.button("計算並儲存"):
@@ -153,19 +153,19 @@ with tab1:
 with tab2:
     if 'res' in st.session_state:
         r = st.session_state['res']
-        st.header("📊 今日碳盤查數據摘要 (單位: kgCO2e)")
+        st.header("今日碳盤查數據摘要 (單位: kgCO2e)")
         m1, m2, m3, m4, m5 = st.columns(5)
-        m1.metric("🍱 食", f"{r['food']} kg")
-        m2.metric("♻️ 用品", f"{r['disp']} kg")
-        m3.metric("🏠 住", f"{r['home']} kg")
-        m4.metric("🚲 行", f"{r['move']} kg")
-        m5.metric("🌟 總計", f"{r['total']} kg")
+        m1.metric(" 食", f"{r['food']} kg")
+        m2.metric(" 用品", f"{r['disp']} kg")
+        m3.metric(" 住", f"{r['home']} kg")
+        m4.metric(" 行", f"{r['move']} kg")
+        m5.metric(" 總計", f"{r['total']} kg")
         
         total_stars = _get_total_stars(r['total'])
         st.subheader(f"今日效率總評：{'⭐' * total_stars}")
 
         scale = 10_000_000
-        st.subheader("🌎 如果 1000 萬人跟妳做一樣的事...")
+        st.subheader(" 如果 1000 萬人跟妳做一樣的事...")
         ic1, ic2, ic3 = st.columns(3)
         ic1.metric("冰川消融", f"{(r['total'] * scale / 1000 * 3):,.0f} m²")
         ic2.metric("所需大樹", f"{int(r['total'] * scale / 22):,} 棵")
@@ -200,16 +200,17 @@ with tab3:
                 "home": "能源 (kgCO2e)", "transport": "交通 (kgCO2e)", "total": "今日總排放 (kgCO2e)"
             })
             
-            st.subheader("📅 碳排放趨勢分析")
+            st.subheader("碳排放趨勢分析")
             st.line_chart(df_renamed.set_index('日期')[['今日總排放 (kgCO2e)']])
             
-            st.subheader("📊 排放熱點組成分析")
+            st.subheader("排放熱點組成分析")
             st.area_chart(df_renamed.set_index('日期')[["飲食 (kgCO2e)", "用品 (kgCO2e)", "能源 (kgCO2e)", "交通 (kgCO2e)"]])
             
             st.divider()
-            st.subheader("📋 每日盤查紀錄明細表")
+            st.subheader("每日盤查紀錄明細表")
             st.dataframe(df_renamed.set_index("日期"), use_container_width=True)
             
             avg_v = df['total'].mean()
             st.metric("平均日排放", f"{round(avg_v, 2)} kgCO2e", delta=f"{round(avg_v - 19.6, 2)} vs 台灣平均", delta_color="inverse")
     except Exception as e: st.error(f"讀取失敗: {e}")
+
